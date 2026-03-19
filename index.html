@@ -718,8 +718,18 @@ async function doLogin(){
       btn.disabled=false; btn.innerHTML='→ Enter Portal';
       show('adminPanel');
       setSyncDot('ok');
-      await renderAdminQs();
-      await renderProg();
+      try {
+        await renderAdminQs();
+      } catch(e) {
+        console.error('renderAdminQs failed:', e);
+        toast('Admin Q load error: ' + e.message, 'e', 8000);
+      }
+      try {
+        await renderProg();
+      } catch(e) {
+        console.error('renderProg failed:', e);
+        toast('Progress load error: ' + e.message, 'e', 8000);
+      }
       document.getElementById('sName').value=_settings.name;
       return;
     }
