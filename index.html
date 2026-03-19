@@ -708,12 +708,14 @@ function setRole(r){
 async function doLogin(){
   const btn=document.getElementById('loginBtn');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Loading…';
+
   try{
     if(loginRole==='admin'){
       const p=document.getElementById('lAdminPass').value.trim();
-      if(!p){ toast('Enter admin password','w'); return; }
-      if(p!==_settings.pass){ toast('Incorrect password','e'); return; }
+      if(!p){ toast('Enter admin password','w'); btn.disabled=false; btn.innerHTML='→ Enter Portal'; return; }
+      if(p!==_settings.pass){ toast('Incorrect password','e'); btn.disabled=false; btn.innerHTML='→ Enter Portal'; return; }
       role='admin';
+      btn.disabled=false; btn.innerHTML='→ Enter Portal';
       show('adminPanel');
       setSyncDot('ok');
       await renderAdminQs();
@@ -727,16 +729,17 @@ async function doLogin(){
     const roll = document.getElementById('lRoll').value.trim();
     const pass = document.getElementById('lStuPass').value;
 
-    if(!div)  { toast('Please select your division','w'); return; }
-    if(!roll) { toast('Please select your roll number','w'); return; }
-    if(!pass) { toast('Please enter your password','w'); return; }
+    if(!div)  { toast('Please select your division','w'); btn.disabled=false; btn.innerHTML='→ Enter Portal'; return; }
+    if(!roll) { toast('Please select your roll number','w'); btn.disabled=false; btn.innerHTML='→ Enter Portal'; return; }
+    if(!pass) { toast('Please enter your password','w'); btn.disabled=false; btn.innerHTML='→ Enter Portal'; return; }
 
     const rollNum = parseInt(roll, 10);
-    const sid = div + String(rollNum).padStart(2,'0');   // e.g. "A07"
+    const sid = div + String(rollNum).padStart(2,'0');
     const expected = PASSWORDS[sid];
 
     if(!expected || pass !== expected){
       toast('Incorrect password — passwords are case-sensitive','e');
+      btn.disabled=false; btn.innerHTML='→ Enter Portal';
       return;
     }
 
@@ -744,24 +747,35 @@ async function doLogin(){
     role = 'student';
 
     // Upsert student record in Firestore
-    await fbSet(`students/${sid}`, {div, roll:rollNum, rollId:sid, lastSeen:new Date().toISOString()}, true);
+    try { await fbSet(`students/${sid}`, {div, roll:rollNum, rollId:sid, lastSeen:new Date().toISOString()}, true); }
+    catch(e){ console.warn('Could not save student record:', e); }
 
     // Load this student's submissions from cloud
-    setLd('Loading your progress from cloud…');
+    setLd('Loading your progress…');
     document.getElementById('loadingOv').style.display='flex';
-    const allSubs = await fbGetCol('submissions');
-    _studentSubs = {};
-    allSubs.filter(s=>s.rollId===sid).forEach(s=>{ _studentSubs[s.qId]=s; });
+    try {
+      const allSubs = await fbGetCol('submissions');
+      _studentSubs = {};
+      allSubs.filter(s=>s.rollId===sid).forEach(s=>{ _studentSubs[s.qId]=s; });
+    } catch(e) {
+      console.warn('Could not load submissions:', e);
+      _studentSubs = {};
+    }
     document.getElementById('loadingOv').style.display='none';
 
     document.getElementById('navAv').textContent=div;
     document.getElementById('navName').textContent=`Div ${div} · Roll ${rollNum}`;
     document.getElementById('navPortalName').textContent=_settings.name;
     setSyncDot('ok');
+    btn.disabled=false; btn.innerHTML='→ Enter Portal';
     show('studentDashboard');
     renderDash();
-  } finally {
+
+  } catch(err) {
+    console.error('Login error:', err);
+    toast('Login error: ' + err.message, 'e', 6000);
     btn.disabled=false; btn.innerHTML='→ Enter Portal';
+    document.getElementById('loadingOv').style.display='none';
   }
 }
 
